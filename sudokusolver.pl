@@ -1,10 +1,5 @@
 #!perl -w
 
-# a bigsquare has 3 types of sets: x, y, square
-# within square is each row left-right, top row first
-# square offset is same
-# all offsets and xy coords start from 0
-
 use strict;
 
 #use Data::Dumper; print Data::Dumper::Dumper([ Sudoko::Bigsquare::init2nonblank(@ESCARGOT) ]);
@@ -14,8 +9,20 @@ die "usage: $0 <inputfile>\n" unless @ARGV;
 my @input = split ' ', read_file($ARGV[0]);
 
 my $bigsquare = Sudoko::Bigsquare->new(@input);
+print_bigsquare($bigsquare);
 
-use Data::Dumper; print Data::Dumper::Dumper([ $bigsquare->get_solved ]);#$bigsquare->{xy2possvalue21});#
+while (my @solved = $bigsquare->get_solved) {
+ print '.';
+ map { $bigsquare->setvalue(@$_) } @solved;
+}
+print "---\n";
+#use Data::Dumper; print Data::Dumper::Dumper([ $bigsquare->allvalues ]);#$bigsquare->{xy2possvalue21});#
+print_bigsquare($bigsquare);
+
+sub print_bigsquare {
+ my $bigsquare = shift;
+ map { print join('', @$_), "\n" } $bigsquare->allvalues;
+}
 
 sub read_file {
  my $file = shift;
@@ -27,6 +34,11 @@ sub read_file {
 
 package Sudoko::Bigsquare;
 
+# a bigsquare has 3 types of sets: x, y, square
+# within square is each row left-right, top row first
+# square offset is same
+# all offsets and xy coords start from 0
+
 # internal data structures: xy2possvalue21 (i.e. the value is 1, so do "keys" on it to get poss nums)
 #  when the xy is setvalue'd, the key is deleted
 
@@ -34,15 +46,17 @@ sub new {
  my ($class, @init) = @_;
  my $self = {};
  $self->{sets} = [];
+ $self->{y2x2value} = [];
  my @all_xys = map {
   my $y = $_;
   map {
-   "$_$y"
+   [ $_, $y ]
   } (0..8)
  } (0..8);
  map {
   my $this_xy = $_;
-  map { $self->{xy2possvalue21}->{$this_xy}->{$_} = 1; } (1..9);
+  $self->{y2x2value}->[$this_xy->[1]]->[$this_xy->[0]] = 0;
+  map { $self->{xy2possvalue21}->{join '', @$this_xy}->{$_} = 1; } (1..9);
  } @all_xys;
 #use Data::Dumper; print Data::Dumper::Dumper($self->{xy2possvalue21});die;#[ $bigsquare->get_solved ]);
  bless $self, $class;
@@ -53,6 +67,7 @@ sub new {
 
 sub setvalue {
  my ($self, $x, $y, $value) = @_;
+ $self->{y2x2value}->[$y]->[$x] = $value;
 #warn "$self ($x, $y, $value)\n";
 #use Data::Dumper; print Data::Dumper::Dumper([ xy2type_set_offset($x, $y) ]);
  map {
@@ -79,6 +94,12 @@ sub get_solved {
  my $self = shift;
  my $xy2pn = $self->{xy2possvalue21};
  map { [ (split //, $_), (keys %{ $xy2pn->{$_} })[0] ] } grep { keys %{ $xy2pn->{$_} } == 1 } keys %$xy2pn;
+}
+
+# output list of rows
+sub allvalues {
+ my $self = shift;
+ @{ $self->{y2x2value} };
 }
 
 # input (x, y)
