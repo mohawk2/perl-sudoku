@@ -10,7 +10,7 @@ map { $bigsquare->setvalue(@$_) } Sudoko::Bigsquare::init2nonblank(@input);
 print_bigsquare($bigsquare);
 
 while (my @solved = $bigsquare->get_solved) {
- print '.';
+ print scalar(@solved);
  map { $bigsquare->setvalue(@$_) } @solved;
 #die if $::count++ > 2;
 }
@@ -56,8 +56,8 @@ sub remove_poss {
   die "must define either value or loc\n" unless defined $loc;
   map {
    my $value = $_;
-   delete $self->{value2loc21}->{$value}->{$loc} if exists $self->{value2loc21}->{$value}; # no auto-viv
-  } (1..9);
+   delete $self->{value2loc21}->{$value}->{$loc};
+  } keys %{ $self->{value2loc21} };
   return;
  }
  return unless exists $self->{value2loc21}->{$value};
@@ -66,6 +66,7 @@ sub remove_poss {
   return;
  }
  delete $self->{value2loc21}->{$value}->{$loc};
+ delete $self->{value2loc21}->{$value} unless keys %{ $self->{value2loc21}->{$value} };
 }
 
 # returns list of [ loc, value ]
