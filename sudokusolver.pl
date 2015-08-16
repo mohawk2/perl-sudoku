@@ -8,7 +8,8 @@ use strict;
 die "usage: $0 <inputfile>\n" unless @ARGV;
 my @input = split ' ', read_file($ARGV[0]);
 
-my $bigsquare = Sudoko::Bigsquare->new(@input);
+my $bigsquare = Sudoko::Bigsquare->new;
+map { $bigsquare->setvalue(@$_) } Sudoko::Bigsquare::init2nonblank(@input);
 print_bigsquare($bigsquare);
 
 while (my @solved = $bigsquare->get_solved) {
@@ -43,7 +44,7 @@ package Sudoko::Bigsquare;
 #  when the xy is setvalue'd, the key is deleted
 
 sub new {
- my ($class, @init) = @_;
+ my ($class) = @_;
  my $self = {};
  $self->{sets} = [];
  $self->{y2x2value} = [];
@@ -60,9 +61,6 @@ sub new {
  } @all_xys;
 #use Data::Dumper; print Data::Dumper::Dumper($self->{xy2possvalue21});die;#[ $bigsquare->get_solved ]);
  bless $self, $class;
- my @nonblank = init2nonblank(@init) if @init;
- map { $self->setvalue(@$_) } @nonblank;
- $self;
 }
 
 sub setvalue {
