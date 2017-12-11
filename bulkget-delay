@@ -1,0 +1,63 @@
+#!/usr/bin/env perl
+
+# cut down from https://stackoverflow.com/questions/15152633/perl-mojo-and-json-for-simultaneous-requests/15166898#15166898
+sub usage { die "Usage: bulkget-delay urlbase outdir suffixesfile\n", @_ };
+# each line of suffixesfile is a suffix
+# it gets appended to urlbase, then requested non-blocking
+# output in outdir with suffix as filename
+
+use Mojo::Base -strict;
+use Mojo::UserAgent;
+use Mojo::Promise;
+use Mojo::File 'path';
+
+my $MAXREQ = 20;
+
+my ($urlbase, $outdir, $suffixesfile) = @ARGV;
+usage "No URL" if !$urlbase;
+usage "$outdir: $!" if ! -d $outdir;
+usage "$suffixesfile: $!" if ! -f $suffixesfile;
+
+my $outpath = path($outdir);
+my @suffixes = getsuffixes($suffixesfile, $outpath);
+my $ua = Mojo::UserAgent->new;
+
+start_urls($urlbase, $ua, \@suffixes, \&get_callback, $outpath);
+$delay->wait;
+
+sub start_urls {
+  my ($urlbase, $ua, $queue, $cb, $outpath) = @_;
+  state $idle = $MAXREQ;
+  state $delay = Mojo::IOLoop->delay(
+    sub { print "Loop ended before queue depleted\n" if @$queue }
+  );
+  while ( $idle and my $s = shift @$queue ) {
+    $idle--;
+    my $url = $urlbase . $s;
+    print "getting $url\n";
+    my $end = $delay->begin;
+    $ua->get($url => sub{
+      my ($ua, $tx) = @_;
+      $idle++;
+      handle_result($outpath, $tx, $s);
+      start_urls($urlbase, $ua, $queue, $cb, $outpath);
+      $end->();
+    });
+  }
+}
+
+sub handle_result {
+  my ($outpath, $tx, $s) = @_;
+  if ($tx->res->is_success) {
+    print "got $s\n";
+    $outpath->child($s)->spurt($tx->res->body);
+  } else {
+    print "error $s\n";
+  }
+}
+
+sub getsuffixes {
+  my ($suffixesfile, $outpath) = @_;
+  open my $fh, '<', $suffixesfile or die $!;
+  grep { !-f $outpath->child($_); } map { chomp; $_ } <$fh>;
+}
